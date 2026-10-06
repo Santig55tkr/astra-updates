@@ -35,15 +35,19 @@
       const submit = document.querySelector("#submit");
       const hint = document.querySelector("#hint");
       const hash = new URLSearchParams(location.hash.slice(1));
-      const token = hash.get("access_token") || "";
+      const tokenFromHash = hash.get("access_token") || "";
+      if (tokenFromHash) sessionStorage.setItem("astraRecoveryToken", tokenFromHash);
+      const token = tokenFromHash || sessionStorage.getItem("astraRecoveryToken") || "";
       const error = hash.get("error_description") || hash.get("error") || "";
       history.replaceState({}, document.title, location.pathname);
 
-      const fail = (message) => {
+      const fail = (message, fatal = true) => {
         status.className = "status error";
         status.textContent = message;
-        form.hidden = true;
-        hint.textContent = "ASTRA yöneticisinden yeni bir davet göndermesini iste.";
+        form.hidden = fatal;
+        hint.textContent = fatal
+          ? "ASTRA yöneticisinden yeni bir davet göndermesini iste."
+          : "Bilgileri kontrol edip yeniden deneyebilirsin.";
       };
 
       if (error || !token) {
@@ -55,8 +59,8 @@
       form.hidden = false;
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (password.value.length < 8) return fail("Parola en az 8 karakter olmalı.");
-        if (password.value !== repeat.value) return fail("Parolalar aynı değil.");
+        if (password.value.length < 8) return fail("Parola en az 8 karakter olmalı.", false);
+        if (password.value !== repeat.value) return fail("Parolalar aynı değil.", false);
         submit.disabled = true;
         status.className = "status";
         status.textContent = "Hesabın hazırlanıyor…";
@@ -67,6 +71,7 @@
             body: JSON.stringify({ password: password.value })
           });
           if (!response.ok) throw new Error("update_failed");
+          sessionStorage.removeItem("astraRecoveryToken");
           password.value = "";
           repeat.value = "";
           form.hidden = true;
@@ -74,7 +79,7 @@
           status.textContent = "Hesabın hazır. Artık ASTRA uygulamasında e-posta adresin ve yeni parolanla giriş yapabilirsin.";
           hint.textContent = "Bu sekmeyi güvenle kapatabilirsin.";
         } catch {
-          fail("Parola kaydedilemedi. Bağlantının süresi dolmuş olabilir.");
+          fail("Parola kaydedilemedi. Bağlantının süresi dolmuş olabilir.", false);
         } finally {
           submit.disabled = false;
         }
