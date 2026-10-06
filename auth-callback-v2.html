@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://bgndqyklrpxsjdjecmog.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+  <title>ASTRA Beta hesabı</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui,sans-serif;background:#050812;color:#f7f9ff}*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 10%,rgba(35,103,219,.19),transparent 38%),radial-gradient(circle at 80% 80%,rgba(92,51,190,.12),transparent 38%),#050812}.card{width:min(100%,460px);padding:34px;border:1px solid rgba(120,166,255,.22);border-radius:24px;background:linear-gradient(145deg,rgba(15,22,42,.96),rgba(7,11,23,.98));box-shadow:0 26px 80px rgba(0,0,0,.42)}.brand{display:flex;align-items:center;gap:12px;margin-bottom:28px}.mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;border:1px solid rgba(80,173,255,.45);color:#72c6ff;background:rgba(29,91,181,.16);font-size:22px;font-weight:700;box-shadow:0 0 28px rgba(50,126,255,.18)}.brand strong{letter-spacing:.28em;font-size:15px}.eyebrow{margin:0 0 10px;color:#75bfff;font-size:11px;letter-spacing:.2em}h1{margin:0 0 10px;font-size:30px;letter-spacing:-.035em}p{margin:0;color:#9eaac0;line-height:1.6}.status{margin:22px 0;padding:13px 14px;border:1px solid rgba(125,153,202,.17);border-radius:12px;background:rgba(13,20,37,.72);font-size:14px}.status.error{border-color:rgba(255,92,107,.38);color:#ff9ca6}.status.success{border-color:rgba(49,218,151,.32);color:#65e8ad}form{display:grid;gap:15px}label{display:grid;gap:7px;color:#cbd4e4;font-size:13px}input{width:100%;height:48px;border:1px solid rgba(134,163,214,.25);border-radius:12px;padding:0 14px;background:#080d1a;color:#fff;font:inherit;outline:none}input:focus{border-color:#4cabff;box-shadow:0 0 0 3px rgba(42,148,255,.12)}button{height:48px;border:0;border-radius:12px;background:linear-gradient(135deg,#1889ee,#6745d9);color:#fff;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.hint{display:block;margin-top:17px;color:#758198;font-size:12px;line-height:1.55}a{color:#78c7ff} [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><span class="mark">A</span><strong>ASTRA</strong></div>
+    <p class="eyebrow">KAPALI BETA DAVETİ</p>
+    <h1>Hesabını hazırla</h1>
+    <p>ASTRA davetini tamamlamak için güvenli bir parola belirle.</p>
+    <div id="status" class="status">Davet bağlantın doğrulanıyor…</div>
+    <form id="form" hidden>
+      <label>Yeni parola<input id="password" type="password" minlength="8" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
+      <label>Parolayı tekrar et<input id="repeat" type="password" minlength="8" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
+      <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:9px"><input id="showPasswords" type="checkbox" style="width:18px;height:18px"><span>Yazdığım parolaları göster</span></label>
+      <button id="submit" type="submit">Parolayı kaydet</button>
+    </form>
+    <small id="hint" class="hint">Bu sayfa yalnızca ASTRA davet bağlantısından açılır.</small>
+  </main>
+  <script>
+    (() => {
+      const SUPABASE_URL = "https://bgndqyklrpxsjdjecmog.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnbmRxeWtscnB4c2pkamVjbW9nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NzU1NTgsImV4cCI6MjEwNTI1MTU1OH0.OY-UvnKRqcWE6gibQlOz7R5gzim9-61Lncfbk3y8jBQ";
+      const status = document.querySelector("#status");
+      const form = document.querySelector("#form");
+      const password = document.querySelector("#password");
+      const repeat = document.querySelector("#repeat");
+      const showPasswords = document.querySelector("#showPasswords");
+      const submit = document.querySelector("#submit");
+      const hint = document.querySelector("#hint");
+      const hash = new URLSearchParams(location.hash.slice(1));
+      const tokenFromHash = hash.get("access_token") || "";
+      if (tokenFromHash) sessionStorage.setItem("astraRecoveryToken", tokenFromHash);
+      const token = tokenFromHash || sessionStorage.getItem("astraRecoveryToken") || "";
+      const error = hash.get("error_description") || hash.get("error") || "";
+      history.replaceState({}, document.title, location.pathname);
+
+      const fail = (message, fatal = true) => {
+        status.className = "status error";
+        status.textContent = message;
+        form.hidden = fatal;
+        hint.textContent = fatal
+          ? "ASTRA yöneticisinden yeni bir davet göndermesini iste."
+          : "Bilgileri kontrol edip yeniden deneyebilirsin.";
+      };
+
+      if (error || !token) {
+        fail("Bu davet bağlantısı geçersiz veya süresi dolmuş.");
+        return;
+      }
+
+      status.textContent = "Davet doğrulandı. Yeni parolanı belirleyebilirsin.";
+      form.hidden = false;
+      showPasswords.addEventListener("change", () => {
+        const type = showPasswords.checked ? "text" : "password";
+        password.type = type;
+        repeat.type = type;
+      });
+      [password, repeat].forEach((input) => input.addEventListener("input", () => {
+        if (status.classList.contains("error")) {
+          status.className = "status";
+          status.textContent = "Parolaları kontrol edip yeniden deneyebilirsin.";
+        }
+      }));
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const nextPassword = password.value.trim();
+        const repeatedPassword = repeat.value.trim();
+        if (nextPassword.length < 8) {
+          password.focus();
+          return fail("Parola en az 8 karakter olmalı.", false);
+        }
+        if (nextPassword !== repeatedPassword) {
+          repeat.value = "";
+          repeat.focus();
+          return fail("Parolalar eşleşmedi. İkinci alanı yeniden yazabilirsin; bağlantın hâlâ geçerli.", false);
+        }
+        submit.disabled = true;
+        status.className = "status";
+        status.textContent = "Hesabın hazırlanıyor…";
+        try {
+          const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            method: "PUT",
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ password: nextPassword })
+          });
+          if (!response.ok) throw new Error("update_failed");
+          sessionStorage.removeItem("astraRecoveryToken");
+          password.value = "";
+          repeat.value = "";
+          form.hidden = true;
+          status.className = "status success";
+          status.textContent = "Hesabın hazır. Artık ASTRA uygulamasında e-posta adresin ve yeni parolanla giriş yapabilirsin.";
+          hint.textContent = "Bu sekmeyi güvenle kapatabilirsin.";
+        } catch {
+          fail("Parola kaydedilemedi. Bağlantının süresi dolmuş olabilir.", false);
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
