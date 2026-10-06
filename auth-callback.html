@@ -18,8 +18,9 @@
     <p>ASTRA davetini tamamlamak için güvenli bir parola belirle.</p>
     <div id="status" class="status">Davet bağlantın doğrulanıyor…</div>
     <form id="form" hidden>
-      <label>Yeni parola<input id="password" type="password" minlength="8" autocomplete="new-password" required></label>
-      <label>Parolayı tekrar et<input id="repeat" type="password" minlength="8" autocomplete="new-password" required></label>
+      <label>Yeni parola<input id="password" type="password" minlength="8" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
+      <label>Parolayı tekrar et<input id="repeat" type="password" minlength="8" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
+      <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:9px"><input id="showPasswords" type="checkbox" style="width:18px;height:18px"><span>Yazdığım parolaları göster</span></label>
       <button id="submit" type="submit">Parolayı kaydet</button>
     </form>
     <small id="hint" class="hint">Bu sayfa yalnızca ASTRA davet bağlantısından açılır.</small>
@@ -32,6 +33,7 @@
       const form = document.querySelector("#form");
       const password = document.querySelector("#password");
       const repeat = document.querySelector("#repeat");
+      const showPasswords = document.querySelector("#showPasswords");
       const submit = document.querySelector("#submit");
       const hint = document.querySelector("#hint");
       const hash = new URLSearchParams(location.hash.slice(1));
@@ -57,10 +59,30 @@
 
       status.textContent = "Davet doğrulandı. Yeni parolanı belirleyebilirsin.";
       form.hidden = false;
+      showPasswords.addEventListener("change", () => {
+        const type = showPasswords.checked ? "text" : "password";
+        password.type = type;
+        repeat.type = type;
+      });
+      [password, repeat].forEach((input) => input.addEventListener("input", () => {
+        if (status.classList.contains("error")) {
+          status.className = "status";
+          status.textContent = "Parolaları kontrol edip yeniden deneyebilirsin.";
+        }
+      }));
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (password.value.length < 8) return fail("Parola en az 8 karakter olmalı.", false);
-        if (password.value !== repeat.value) return fail("Parolalar aynı değil.", false);
+        const nextPassword = password.value.trim();
+        const repeatedPassword = repeat.value.trim();
+        if (nextPassword.length < 8) {
+          password.focus();
+          return fail("Parola en az 8 karakter olmalı.", false);
+        }
+        if (nextPassword !== repeatedPassword) {
+          repeat.value = "";
+          repeat.focus();
+          return fail("Parolalar eşleşmedi. İkinci alanı yeniden yazabilirsin; bağlantın hâlâ geçerli.", false);
+        }
         submit.disabled = true;
         status.className = "status";
         status.textContent = "Hesabın hazırlanıyor…";
@@ -68,7 +90,7 @@
           const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
             method: "PUT",
             headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ password: password.value })
+            body: JSON.stringify({ password: nextPassword })
           });
           if (!response.ok) throw new Error("update_failed");
           sessionStorage.removeItem("astraRecoveryToken");
